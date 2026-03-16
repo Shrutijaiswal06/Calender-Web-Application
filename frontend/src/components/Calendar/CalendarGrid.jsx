@@ -82,27 +82,33 @@ function CalendarGrid({ events = [], onEventClick }) {
               event.date === dateItem.format("YYYY-MM-DD")
           );
 
-          // if there are events, take the first color to highlight date
           const cellColor = dayEvents.length > 0 ? dayEvents[0].color : null;
 
           return (
             <div
               key={index}
-              className={`h-28 border rounded p-2 border-slate-700
+              className={`h-32 border rounded p-2 border-slate-700 flex flex-col
                 ${isToday ? "bg-blue-500 text-white" : "bg-slate-800"}
                 ${!isCurrentMonth ? "text-slate-500" : "text-white"}
               `}
-              style={cellColor ? { borderTopColor: cellColor, borderTopWidth: '4px' } : {}}
+              style={
+                cellColor
+                  ? { borderTopColor: cellColor, borderTopWidth: "4px" }
+                  : {}
+              }
             >
 
-              {/* Date Number */}
-              <div className="text-sm font-semibold" style={cellColor ? { color: cellColor } : {}}>
+              {/* Date */}
+              <div
+                className="text-sm font-semibold"
+                style={cellColor ? { color: cellColor } : {}}
+              >
                 {dateItem.date()}
               </div>
 
-              {/* color indicators for each event */}
+              {/* Event color dots */}
               {dayEvents.length > 0 && (
-                <div className="flex gap-1 mt-1">
+                <div className="flex gap-1 mt-1 flex-shrink-0">
                   {dayEvents.map((e, idx) => (
                     <span
                       key={idx}
@@ -113,15 +119,15 @@ function CalendarGrid({ events = [], onEventClick }) {
                 </div>
               )}
 
-              {/* Events */}
-              <div className="mt-1 flex flex-col gap-1 text-xs">
+              {/* Scrollable Events */}
+              <div className="mt-1 flex flex-col gap-1 text-xs overflow-y-auto flex-1 pr-1">
 
                 {dayEvents.map((event, i) => (
                   <div
                     key={i}
                     onClick={() => onEventClick && onEventClick(event)}
                     className="px-1 rounded truncate cursor-pointer hover:opacity-90"
-                    style={{ backgroundColor: event.color, color: '#fff' }}
+                    style={{ backgroundColor: event.color, color: "#fff" }}
                   >
                     {event.title}
                   </div>

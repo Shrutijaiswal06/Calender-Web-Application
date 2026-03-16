@@ -9,6 +9,14 @@ function EventPanel({ event }) {
     );
   }
 
+  const formatUrl = (url) => {
+    if (!url) return "";
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      return "https://" + url;
+    }
+    return url;
+  };
+
   return (
     <div className="w-80 bg-slate-800 p-5 border-l border-slate-700">
 
@@ -17,31 +25,37 @@ function EventPanel({ event }) {
       <div className="flex flex-col gap-3 text-sm">
 
         <p>
-          <strong>Title:</strong>{" "}
-          <span style={{ color: event.color }}>{event.title}</span>
+          <strong>Title:</strong> {event.title}
         </p>
 
-        <p><strong>Date:</strong> {event.date}</p>
-
-        <p><strong>Time:</strong> {event.time}</p>
-
-        <p><strong>Location:</strong> {event.location}</p>
-
         <p>
-          <strong>URL:</strong>{" "}
-          <a href={event.url} className="text-blue-400">
-            Join Meeting
-          </a>
+          <strong>Date:</strong> {event.date}
         </p>
 
-        <p><strong>Category:</strong> {event.category}</p>
+        <p>
+          <strong>Time:</strong> {event.time}
+        </p>
 
         <p>
-          <strong>Color:</strong>{" "}
-          <span
-            className="inline-block w-4 h-4 rounded"
-            style={{ backgroundColor: event.color }}
-          ></span>
+          <strong>Location:</strong> {event.location}
+        </p>
+
+        {event.url && (
+          <p>
+            <strong>URL:</strong>{" "}
+            <a
+              href={formatUrl(event.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 underline"
+            >
+              Join Meeting
+            </a>
+          </p>
+        )}
+
+        <p>
+          <strong>Category:</strong> {event.category}
         </p>
 
       </div>

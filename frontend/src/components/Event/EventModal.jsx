@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function EventModal({ isOpen, onClose, onSave }) {
+function EventModal({ isOpen, onClose, onSave, eventTypes }) {
 
   // color defaults based on category
   const categoryColors = {
@@ -17,7 +17,7 @@ function EventModal({ isOpen, onClose, onSave }) {
     time: "",
     location: "",
     url: "",
-    category: "Meeting",
+    category: "",
     // color will be derived from category on submit
   });
 
@@ -33,9 +33,10 @@ function EventModal({ isOpen, onClose, onSave }) {
     e.preventDefault();
 
     // compute colour from category before saving
+    const selectedType = eventTypes.find(type => type.name === eventData.category);
     const eventWithColor = {
       ...eventData,
-      color: categoryColors[eventData.category] || "#3b82f6",
+      color: selectedType ? selectedType.color : "#3b82f6",
     };
 
     onSave(eventWithColor);
@@ -46,7 +47,7 @@ function EventModal({ isOpen, onClose, onSave }) {
       time: "",
       location: "",
       url: "",
-      category: "Meeting",
+      category: "",
     });
 
     onClose();
@@ -55,69 +56,88 @@ function EventModal({ isOpen, onClose, onSave }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center backdrop-blur-sm">
 
-      <div className="bg-slate-800 p-6 rounded-lg w-96">
+      <div className="bg-slate-800 p-8 rounded-lg w-[500px]">
 
         <h2 className="text-xl font-bold mb-4">Add Event</h2>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-          <input
-            type="text"
-            name="title"
-            placeholder="Event Title"
-            value={eventData.title}
-            onChange={handleChange}
-            className="p-2 rounded bg-slate-700"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-blue-400 text-lg">📝</span>
+            <input
+              type="text"
+              name="title"
+              placeholder="Event Title"
+              value={eventData.title}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white"
+            />
+          </div>
 
-          <input
-            type="date"
-            name="date"
-            value={eventData.date}
-            onChange={handleChange}
-            className="p-2 rounded bg-slate-700"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-green-400 text-lg">📅</span>
+            <input
+              type="date"
+              name="date"
+              value={eventData.date}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white"
+            />
+          </div>
 
-          <input
-            type="time"
-            name="time"
-            value={eventData.time}
-            onChange={handleChange}
-            className="p-2 rounded bg-slate-700"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-400 text-lg">⏰</span>
+            <input
+              type="time"
+              name="time"
+              value={eventData.time}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white"
+            />
+          </div>
 
-          <input
-            type="text"
-            name="location"
-            placeholder="Location"
-            value={eventData.location}
-            onChange={handleChange}
-            className="p-2 rounded bg-slate-700"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-purple-400 text-lg">📍</span>
+            <input
+              type="text"
+              name="location"
+              placeholder="Location"
+              value={eventData.location}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white"
+            />
+          </div>
 
-          <input
-            type="text"
-            name="url"
-            placeholder="Meeting URL"
-            value={eventData.url}
-            onChange={handleChange}
-            className="p-2 rounded bg-slate-700"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-red-400 text-lg">🔗</span>
+            <input
+              type="text"
+              name="url"
+              placeholder="Meeting URL"
+              value={eventData.url}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white"
+            />
+          </div>
 
-          <select
-            name="category"
-            value={eventData.category}
-            onChange={handleChange}
-            className="p-2 rounded bg-slate-700"
-          >
-            <option>Meeting</option>
-            <option>Holiday</option>
-            <option>Deadline</option>
-            <option>Personal</option>
-            <option>Company Event</option>
-          </select>
+          <div className="flex items-center gap-2">
+            <span className="text-orange-400 text-lg">🏷️</span>
+            <select
+              name="category"
+              value={eventData.category}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white"
+            >
+              <option value="">Select Event Type</option>
+              {eventTypes.map((type, index) => (
+                <option key={index} value={type.name}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
 
           <div className="flex justify-between mt-4">
