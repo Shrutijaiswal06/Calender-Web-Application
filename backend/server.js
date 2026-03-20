@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const { google } = require('googleapis');
 
 const Event = require('./models/Event');
 const EventType = require('./models/EventType');
@@ -44,6 +45,16 @@ const authenticateToken = (req, res, next) => {
 
   });
 };
+
+/* ---------------- GOOGLE CALENDAR CONFIG ---------------- */
+
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/google/callback`
+);
+
+const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
 /* ---------------- AUTH ---------------- */
 
@@ -119,13 +130,100 @@ app.post('/api/auth/login', async (req, res) => {
 
 });
 
+/* ---------------- GOOGLE CALENDAR AUTH ---------------- */
+
+app.get('/api/auth/google', authenticateToken, (req, res) => {
+  const scopes = [
+    'https://www.googleapis.com/auth/calendar.readonly',
+    'https://www.googleapis.com/auth/calendar.events'
+  ];
+
+  const url = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: scopes,
+    state: req.user.userId
+  });
+
+  res.json({ authUrl: url });
+});
+
+app.get('/api/auth/google/callback', async (req, res) => {
+  const { code, state: userId } = req.query;
+
+  try {
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    // Get user's calendar list to find primary calendar
+    const calendarResponse = await calendar.calendarList.list();
+    const primaryCalendar = calendarResponse.data.items.find(cal => cal.primary);
+
+    // Save tokens to user
+    await User.findByIdAndUpdate(userId, {
+      googleCalendar: {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        expiryDate: new Date(tokens.expiry_date),
+        calendarId: primaryCalendar ? primaryCalendar.id : 'primary'
+      }
+    });
+
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/calendar?google_auth=success`);
+  } catch (error) {
+    console.error('Google auth callback error:', error);
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/calendar?google_auth=error`);
+  }
+});
+
+app.get('/api/google-calendar/events', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user.googleCalendar || !user.googleCalendar.accessToken) {
+      return res.status(400).json({ message: 'Google Calendar not connected' });
+    }
+
+    oauth2Client.setCredentials({
+      access_token: user.googleCalendar.accessToken,
+      refresh_token: user.googleCalendar.refreshToken,
+      expiry_date: user.googleCalendar.expiryDate.getTime()
+    });
+
+    const { timeMin, timeMax } = req.query;
+    const response = await calendar.events.list({
+      calendarId: user.googleCalendar.calendarId || 'primary',
+      timeMin: timeMin || new Date().toISOString(),
+      timeMax: timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+
+    const events = response.data.items.map(event => ({
+      id: event.id,
+      title: event.summary,
+      date: event.start.dateTime ? event.start.dateTime.split('T')[0] : event.start.date,
+      time: event.start.dateTime ? event.start.dateTime.split('T')[1].substring(0, 5) : '00:00',
+      location: event.location || '',
+      url: event.htmlLink || '',
+      category: 'Google Calendar',
+      color: '#4285f4',
+      isGoogleEvent: true
+    }));
+
+    res.json(events);
+  } catch (error) {
+    console.error('Google Calendar fetch error:', error);
+    res.status(500).json({ message: 'Failed to fetch Google Calendar events' });
+  }
+});
+
 /* ---------------- EVENTS ---------------- */
 
 app.get('/api/events', authenticateToken, async (req, res) => {
 
   try {
 
-    const events = await Event.find({ user: req.user.userId });
+    const events = await Event.find({ user: req.user.userId }).populate('eventType');
 
     res.json(events);
 
@@ -141,12 +239,21 @@ app.post('/api/events', authenticateToken, async (req, res) => {
 
   try {
 
+    const { eventType } = req.body;
+    
+    // Verify event type exists (event types are global)
+    const eventTypeDoc = await EventType.findById(eventType);
+    if (!eventTypeDoc) {
+      return res.status(400).json({ message: 'Invalid event type' });
+    }
+
     const event = new Event({
       ...req.body,
       user: req.user.userId
     });
 
     const newEvent = await event.save();
+    await newEvent.populate('eventType');
 
     res.status(201).json(newEvent);
 
@@ -166,7 +273,7 @@ app.put('/api/events/:id', authenticateToken, async (req, res) => {
       { _id: req.params.id, user: req.user.userId },
       req.body,
       { new: true }
-    );
+    ).populate('eventType');
 
     res.json(event);
 
@@ -199,7 +306,7 @@ app.delete('/api/events/:id', authenticateToken, async (req, res) => {
 
 /* ---------------- EVENT TYPES ---------------- */
 
-app.get('/api/event-types', async (req, res) => {
+app.get('/api/event-types', authenticateToken, async (req, res) => {
 
   try {
 
@@ -215,11 +322,14 @@ app.get('/api/event-types', async (req, res) => {
 
 });
 
-app.post('/api/event-types', async (req, res) => {
+app.post('/api/event-types', authenticateToken, async (req, res) => {
 
   try {
 
-    const eventType = new EventType(req.body);
+    const eventType = new EventType({
+      ...req.body,
+      user: req.user.userId
+    });
 
     const newEventType = await eventType.save();
 
@@ -228,6 +338,33 @@ app.post('/api/event-types', async (req, res) => {
   } catch (error) {
 
     res.status(400).json({ message: error.message });
+
+  }
+
+});
+
+app.delete('/api/event-types/:id', authenticateToken, async (req, res) => {
+
+  try {
+
+    const eventType = await EventType.findById(req.params.id);
+
+    if (!eventType) {
+      return res.status(404).json({ message: 'Event type not found' });
+    }
+
+    // Only creator can delete
+    if (eventType.user.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Only creator can delete this event type' });
+    }
+
+    await EventType.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Event type deleted' });
+
+  } catch (error) {
+
+    res.status(500).json({ message: error.message });
 
   }
 

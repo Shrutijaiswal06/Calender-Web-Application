@@ -27,8 +27,9 @@ const eventSchema = new mongoose.Schema({
     default: ''
   },
 
-  category: {
-    type: String,
+  eventType: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'EventType',
     required: true
   },
 

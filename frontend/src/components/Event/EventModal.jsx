@@ -2,23 +2,14 @@ import { useState } from "react";
 
 function EventModal({ isOpen, onClose, onSave, eventTypes }) {
 
-  // color defaults based on category
-  const categoryColors = {
-    Meeting: "#3b82f6",
-    Holiday: "#10b981",
-    Deadline: "#ef4444",
-    Personal: "#8b5cf6",
-    "Company Event": "#f59e0b",
-  };
-
   const [eventData, setEventData] = useState({
     title: "",
     date: "",
     time: "",
     location: "",
     url: "",
-    category: "",
-    // color will be derived from category on submit
+    eventType: "",
+    color: "#3b82f6"
   });
 
   const handleChange = (e) => {
@@ -32,8 +23,8 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // compute colour from category before saving
-    const selectedType = eventTypes.find(type => type.name === eventData.category);
+    // Get color from selected event type
+    const selectedType = eventTypes.find(type => type._id === eventData.eventType);
     const eventWithColor = {
       ...eventData,
       color: selectedType ? selectedType.color : "#3b82f6",
@@ -47,7 +38,8 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
       time: "",
       location: "",
       url: "",
-      category: "",
+      eventType: "",
+      color: "#3b82f6"
     });
 
     onClose();
@@ -125,14 +117,14 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
           <div className="flex items-center gap-2">
             <span className="text-orange-400 text-lg">🏷️</span>
             <select
-              name="category"
-              value={eventData.category}
+              name="eventType"
+              value={eventData.eventType}
               onChange={handleChange}
               className="flex-1 p-3 rounded bg-slate-700 text-white"
             >
               <option value="">Select Event Type</option>
-              {eventTypes.map((type, index) => (
-                <option key={index} value={type.name}>
+              {eventTypes.map((type) => (
+                <option key={type._id} value={type._id}>
                   {type.name}
                 </option>
               ))}

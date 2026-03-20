@@ -18,6 +18,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
     minlength: 6
+  },
+  googleCalendar: {
+    accessToken: String,
+    refreshToken: String,
+    expiryDate: Date,
+    calendarId: String
   }
 }, {
   timestamps: true

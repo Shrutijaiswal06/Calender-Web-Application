@@ -16,24 +16,41 @@ function CalendarPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const response = await fetch("http://localhost:5001/api/events", {
+      // Fetch local events
+      const localResponse = await fetch("http://localhost:5001/api/events", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) {
-        console.error("Failed to fetch events");
-        return;
+      let allEvents = [];
+
+      if (localResponse.ok) {
+        const localData = await localResponse.json();
+        if (Array.isArray(localData)) {
+          allEvents = [...localData];
+        }
       }
 
-      const data = await response.json();
+      // Fetch Google Calendar events
+      try {
+        const googleResponse = await fetch("http://localhost:5001/api/google-calendar/events", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      if (Array.isArray(data)) {
-        setEvents(data);
-      } else {
-        setEvents([]);
+        if (googleResponse.ok) {
+          const googleData = await googleResponse.json();
+          if (Array.isArray(googleData)) {
+            allEvents = [...allEvents, ...googleData];
+          }
+        }
+      } catch (googleError) {
+        console.log("Google Calendar not connected or error fetching:", googleError);
       }
+
+      setEvents(allEvents);
 
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -115,8 +132,8 @@ function CalendarPage() {
         return;
       }
 
-      const newEventType = await response.json();
-      setEventTypes([...eventTypes, newEventType]);
+      // Refetch event types to ensure everything is in sync
+      await fetchEventTypes();
 
     } catch (error) {
       console.error("Error adding event type:", error);

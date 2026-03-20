@@ -1,18 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 function Sidebar({ openEventModal, eventTypes = [], addEventType }) {
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem("token"));
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
   const [newTypeColor, setNewTypeColor] = useState("#3b82f6");
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsLoggedIn(!!token);
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -34,17 +29,50 @@ function Sidebar({ openEventModal, eventTypes = [], addEventType }) {
     }
   };
 
-  const predefinedTypes = [
-    "Meeting",
-    "Holiday",
-    "Deadline",
-    "Personal",
-    "Company Event"
-  ];
+  const handleGoogleAuth = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5001/api/auth/google", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  const customTypes = Array.isArray(eventTypes)
-    ? eventTypes.filter(type => !predefinedTypes.includes(type.name))
-    : [];
+      if (!response.ok) {
+        console.error("Failed to get Google auth URL");
+        return;
+      }
+
+      const data = await response.json();
+      window.location.href = data.authUrl;
+    } catch (error) {
+      console.error("Error initiating Google auth:", error);
+    }
+  };
+
+  const handleDeleteType = async (typeId) => {
+    if (!window.confirm('Are you sure you want to delete this event type?')) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`http://localhost:5001/api/event-types/${typeId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error("Failed to delete event type");
+        return;
+      }
+
+      // Refresh the page to update the event types
+      window.location.reload();
+    } catch (error) {
+      console.error("Error deleting event type:", error);
+    }
+  };
 
   return (
     <div className="w-64 bg-slate-800 p-5 flex flex-col gap-6">
@@ -74,6 +102,19 @@ function Sidebar({ openEventModal, eventTypes = [], addEventType }) {
         )}
 
       </nav>
+
+      {/* Google Calendar Integration */}
+      {isLoggedIn && (
+        <div>
+          <button
+            onClick={handleGoogleAuth}
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded mb-2 flex items-center justify-center gap-2"
+          >
+            <span>🔗</span>
+            Connect Google Calendar
+          </button>
+        </div>
+      )}
 
       {/* Event Types */}
 
@@ -137,44 +178,31 @@ function Sidebar({ openEventModal, eventTypes = [], addEventType }) {
 
         <div className="flex flex-col gap-2 text-sm">
 
-          {/* Predefined Types */}
-
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-            <span>Meeting</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-green-500"></span>
-            <span>Holiday</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500"></span>
-            <span>Deadline</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-purple-500"></span>
-            <span>Personal</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-yellow-500"></span>
-            <span>Company Event</span>
-          </div>
-
-          {/* Custom Event Types */}
-
-          {customTypes.map((type, index) => (
-            <div key={`custom-${index}`} className="flex items-center gap-2">
-              <span
-                className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: type.color }}
-              />
-              <span>{type.name}</span>
+          {/* User-created Event Types */}
+          {eventTypes.map((type, index) => (
+            <div key={index} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: type.color }}
+                />
+                <span>{type.name}</span>
+              </div>
+              <button
+                onClick={() => handleDeleteType(type._id)}
+                className="text-red-400 hover:text-red-300 text-xs px-1"
+                title="Delete event type"
+              >
+                ✕
+              </button>
             </div>
           ))}
+
+          {eventTypes.length === 0 && (
+            <div className="text-slate-500 text-xs italic">
+              No event types yet. Add one above.
+            </div>
+          )}
 
         </div>
 

@@ -55,7 +55,7 @@ function EventPanel({ event }) {
         )}
 
         <p>
-          <strong>Category:</strong> {event.category}
+          <strong>Category:</strong> {event.eventType?.name || 'Unknown'}
         </p>
 
       </div>

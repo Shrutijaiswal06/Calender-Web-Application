@@ -3,32 +3,38 @@ import dayjs from "dayjs";
 
 function CalendarGrid({ events = [], onEventClick }) {
 
-  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const [currentMonth, setCurrentMonth] = useState(dayjs());
+  const [currentWeek, setCurrentWeek] = useState(dayjs().startOf('week'));
 
   const today = dayjs();
 
-  const startOfMonth = currentMonth.startOf("month");
-  const endOfMonth = currentMonth.endOf("month");
-
-  const startDate = startOfMonth.startOf("week");
-  const endDate = endOfMonth.endOf("week");
-
-  let date = startDate.clone();
-  const calendarDays = [];
-
-  while (date.isBefore(endDate) || date.isSame(endDate, "day")) {
-    calendarDays.push(date);
-    date = date.add(1, "day");
+  // Generate time slots from 6 AM to 11 PM
+  const timeSlots = [];
+  for (let hour = 6; hour <= 23; hour++) {
+    timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
   }
 
-  const prevMonth = () => {
-    setCurrentMonth(prev => prev.subtract(1, "month"));
+  // Get the 7 days of the current week
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    weekDays.push(currentWeek.add(i, 'day'));
+  }
+
+  const prevWeek = () => {
+    setCurrentWeek(prev => prev.subtract(1, 'week'));
   };
 
-  const nextMonth = () => {
-    setCurrentMonth(prev => prev.add(1, "month"));
+  const nextWeek = () => {
+    setCurrentWeek(prev => prev.add(1, 'week'));
+  };
+
+  const getEventsForDayAndTime = (date, timeSlot) => {
+    return events.filter(event => {
+      const eventDate = dayjs(event.date);
+      const eventTime = event.time.substring(0, 2); // Get hour from time
+      const slotHour = timeSlot.substring(0, 2);
+
+      return eventDate.isSame(date, 'day') && eventTime === slotHour;
+    });
   };
 
   return (
@@ -40,18 +46,18 @@ function CalendarGrid({ events = [], onEventClick }) {
         <div className="flex items-center gap-4">
 
           <button
-            onClick={prevMonth}
+            onClick={prevWeek}
             className="bg-slate-700 px-3 py-1 rounded hover:bg-slate-600"
           >
             ◀
           </button>
 
           <h2 className="text-2xl font-bold">
-            {currentMonth.format("MMMM YYYY")}
+            Week of {currentWeek.format("MMM D, YYYY")}
           </h2>
 
           <button
-            onClick={nextMonth}
+            onClick={nextWeek}
             className="bg-slate-700 px-3 py-1 rounded hover:bg-slate-600"
           >
             ▶
@@ -61,84 +67,56 @@ function CalendarGrid({ events = [], onEventClick }) {
 
       </div>
 
-      {/* Week Days */}
-      <div className="grid grid-cols-7 text-center mb-2 text-slate-400">
-        {weekDays.map((day) => (
-          <div key={day}>{day}</div>
-        ))}
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-2">
-
-        {calendarDays.map((dateItem, index) => {
-
-          const isToday = dateItem.isSame(today, "day");
-          const isCurrentMonth =
-            dateItem.month() === currentMonth.month();
-
-          const dayEvents = events.filter(
-            (event) =>
-              event.date === dateItem.format("YYYY-MM-DD")
-          );
-
-          const cellColor = dayEvents.length > 0 ? dayEvents[0].color : null;
-
+      {/* Week Days Header */}
+      <div className="grid grid-cols-8 gap-2 mb-2">
+        <div className="text-center text-slate-400">Time</div>
+        {weekDays.map((date, index) => {
+          const isToday = date.isSame(today, "day");
           return (
-            <div
-              key={index}
-              className={`h-32 border rounded p-2 border-slate-700 flex flex-col
-                ${isToday ? "bg-blue-500 text-white" : "bg-slate-800"}
-                ${!isCurrentMonth ? "text-slate-500" : "text-white"}
-              `}
-              style={
-                cellColor
-                  ? { borderTopColor: cellColor, borderTopWidth: "4px" }
-                  : {}
-              }
-            >
-
-              {/* Date */}
-              <div
-                className="text-sm font-semibold"
-                style={cellColor ? { color: cellColor } : {}}
-              >
-                {dateItem.date()}
-              </div>
-
-              {/* Event color dots */}
-              {dayEvents.length > 0 && (
-                <div className="flex gap-1 mt-1 flex-shrink-0">
-                  {dayEvents.map((e, idx) => (
-                    <span
-                      key={idx}
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: e.color }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Scrollable Events */}
-              <div className="mt-1 flex flex-col gap-1 text-xs overflow-y-auto flex-1 pr-1">
-
-                {dayEvents.map((event, i) => (
-                  <div
-                    key={i}
-                    onClick={() => onEventClick && onEventClick(event)}
-                    className="px-1 rounded truncate cursor-pointer hover:opacity-90"
-                    style={{ backgroundColor: event.color, color: "#fff" }}
-                  >
-                    {event.title}
-                  </div>
-                ))}
-
-              </div>
-
+            <div key={index} className={`text-center text-sm font-semibold ${isToday ? 'text-blue-400' : 'text-slate-400'}`}>
+              {date.format("ddd D")}
             </div>
           );
         })}
+      </div>
 
+      {/* Timetable Grid */}
+      <div className="border border-slate-700 rounded overflow-hidden">
+        {timeSlots.map((timeSlot, timeIndex) => (
+          <div key={timeIndex} className="grid grid-cols-8 gap-2 border-b border-slate-700 last:border-b-0">
+            {/* Time Column */}
+            <div className="bg-slate-800 p-2 text-center text-sm text-slate-400 border-r border-slate-700">
+              {timeSlot}
+            </div>
+
+            {/* Day Columns */}
+            {weekDays.map((date, dayIndex) => {
+              const dayEvents = getEventsForDayAndTime(date, timeSlot);
+              const isToday = date.isSame(today, "day");
+
+              return (
+                <div
+                  key={dayIndex}
+                  className={`bg-slate-900 p-2 min-h-[60px] border-r border-slate-700 last:border-r-0 ${
+                    isToday ? 'bg-blue-950' : ''
+                  }`}
+                >
+                  {dayEvents.map((event, eventIndex) => (
+                    <div
+                      key={eventIndex}
+                      onClick={() => onEventClick && onEventClick(event)}
+                      className="text-xs p-1 mb-1 rounded truncate cursor-pointer hover:opacity-90"
+                      style={{ backgroundColor: event.color, color: "#fff" }}
+                      title={`${event.title} - ${event.time}`}
+                    >
+                      {event.title}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
     </div>
