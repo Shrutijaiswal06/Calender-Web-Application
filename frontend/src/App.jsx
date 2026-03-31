@@ -9,6 +9,7 @@ function App() {
       <div className="bg-slate-900 min-h-screen text-white">
         <Routes>
           <Route path="/" element={<CalendarPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>

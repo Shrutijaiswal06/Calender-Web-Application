@@ -224,11 +224,13 @@ app.get('/api/events', authenticateToken, async (req, res) => {
   try {
 
     const events = await Event.find({ user: req.user.userId }).populate('eventType');
+    console.log(`Fetched ${events.length} events for user ${req.user.userId}`);
 
     res.json(events);
 
   } catch (error) {
 
+    console.error('Error fetching events:', error);
     res.status(500).json({ message: error.message });
 
   }
@@ -239,8 +241,13 @@ app.post('/api/events', authenticateToken, async (req, res) => {
 
   try {
 
-    const { eventType } = req.body;
+    const { title, date, time, location, url, eventType, color } = req.body;
     
+    // Validate required fields
+    if (!title || !date || !time || !eventType) {
+      return res.status(400).json({ message: 'Missing required fields: title, date, time, eventType' });
+    }
+
     // Verify event type exists (event types are global)
     const eventTypeDoc = await EventType.findById(eventType);
     if (!eventTypeDoc) {
@@ -248,17 +255,26 @@ app.post('/api/events', authenticateToken, async (req, res) => {
     }
 
     const event = new Event({
-      ...req.body,
+      title,
+      date,
+      time,
+      location: location || '',
+      url: url || '',
+      eventType,
+      color: color || eventTypeDoc.color,
       user: req.user.userId
     });
 
     const newEvent = await event.save();
     await newEvent.populate('eventType');
+    
+    console.log('Event created successfully:', newEvent);
 
     res.status(201).json(newEvent);
 
   } catch (error) {
 
+    console.error('Error creating event:', error);
     res.status(400).json({ message: error.message });
 
   }
@@ -310,12 +326,15 @@ app.get('/api/event-types', authenticateToken, async (req, res) => {
 
   try {
 
+    // Return all event types so users can see shared ones and their own
     const eventTypes = await EventType.find();
+    console.log(`Fetched ${eventTypes.length} event types`);
 
     res.json(eventTypes);
 
   } catch (error) {
 
+    console.error('Error fetching event types:', error);
     res.status(500).json({ message: error.message });
 
   }
@@ -326,17 +345,27 @@ app.post('/api/event-types', authenticateToken, async (req, res) => {
 
   try {
 
+    const { name, color } = req.body;
+    
+    // Validate required fields
+    if (!name || !color) {
+      return res.status(400).json({ message: 'Missing required fields: name, color' });
+    }
+
     const eventType = new EventType({
-      ...req.body,
+      name,
+      color,
       user: req.user.userId
     });
 
     const newEventType = await eventType.save();
+    console.log('Event type created successfully:', newEventType);
 
     res.status(201).json(newEventType);
 
   } catch (error) {
 
+    console.error('Error creating event type:', error);
     res.status(400).json({ message: error.message });
 
   }

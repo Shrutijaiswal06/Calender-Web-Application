@@ -1,7 +1,7 @@
 import { useState } from "react";
 import dayjs from "dayjs";
 
-function CalendarGrid({ events = [], onEventClick }) {
+function CalendarGrid({ events = [], onEventClick, onCreateEvent }) {
 
   const [currentWeek, setCurrentWeek] = useState(dayjs().startOf('week'));
 
@@ -29,11 +29,21 @@ function CalendarGrid({ events = [], onEventClick }) {
 
   const getEventsForDayAndTime = (date, timeSlot) => {
     return events.filter(event => {
-      const eventDate = dayjs(event.date);
-      const eventTime = event.time.substring(0, 2); // Get hour from time
-      const slotHour = timeSlot.substring(0, 2);
+      if (!event.date || !event.time) {
+        console.warn("Event missing date or time:", event);
+        return false;
+      }
+      
+      try {
+        const eventDate = dayjs(event.date);
+        const eventTime = event.time.substring(0, 2); // Get hour from time
+        const slotHour = timeSlot.substring(0, 2);
 
-      return eventDate.isSame(date, 'day') && eventTime === slotHour;
+        return eventDate.isValid() && eventDate.isSame(date, 'day') && eventTime === slotHour;
+      } catch (err) {
+        console.error("Error filtering event:", event, err);
+        return false;
+      }
     });
   };
 
@@ -63,7 +73,23 @@ function CalendarGrid({ events = [], onEventClick }) {
             ▶
           </button>
 
+          <button
+            onClick={() => setCurrentWeek(dayjs().startOf('week'))}
+            className="bg-slate-700 px-3 py-1 rounded hover:bg-slate-600 text-sm"
+          >
+            Today
+          </button>
+
         </div>
+
+        {/* Create Button */}
+        <button
+          onClick={onCreateEvent}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg flex items-center gap-2 transition-colors"
+        >
+          <span>+</span>
+          <span>Create</span>
+        </button>
 
       </div>
 

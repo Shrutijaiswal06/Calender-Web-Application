@@ -23,6 +23,24 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Validation
+    if (!eventData.title.trim()) {
+      alert("Please enter event title");
+      return;
+    }
+    if (!eventData.date) {
+      alert("Please select a date");
+      return;
+    }
+    if (!eventData.time) {
+      alert("Please select a time");
+      return;
+    }
+    if (!eventData.eventType) {
+      alert("Please select an event type");
+      return;
+    }
+
     // Get color from selected event type
     const selectedType = eventTypes.find(type => type._id === eventData.eventType);
     const eventWithColor = {
