@@ -1,5 +1,6 @@
 import { useState } from "react";
 import dayjs from "dayjs";
+import { convertTo12Hour, convertISOToTime } from "../../utils/timeUtils";
 
 function CalendarGrid({ events = [], onEventClick, onCreateEvent }) {
 
@@ -7,10 +8,16 @@ function CalendarGrid({ events = [], onEventClick, onCreateEvent }) {
 
   const today = dayjs();
 
-  // Generate time slots from 6 AM to 11 PM
+  // Generate time slots from 6 AM to 11 PM with 12-hour format display
   const timeSlots = [];
+  const timeSlots24 = [];
   for (let hour = 6; hour <= 23; hour++) {
-    timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
+    const hour24 = `${hour.toString().padStart(2, '0')}:00`;
+    timeSlots24.push(hour24);
+    timeSlots.push({
+      hour24,
+      display: convertTo12Hour(hour24)
+    });
   }
 
   // Get the 7 days of the current week
@@ -36,10 +43,23 @@ function CalendarGrid({ events = [], onEventClick, onCreateEvent }) {
       
       try {
         const eventDate = dayjs(event.date);
-        const eventTime = event.time.substring(0, 2); // Get hour from time
+        let eventHour;
+        
+        // Handle both 24-hour format (HH:MM) and ISO format (ISO string)
+        if (event.time.includes('T')) {
+          // ISO format - parse datetime
+          const eventTime = new Date(event.time);
+          eventHour = eventTime.getHours().toString().padStart(2, '0');
+        } else if (event.time.match(/^\d{2}:\d{2}/)) {
+          // 24-hour format
+          eventHour = event.time.substring(0, 2);
+        } else {
+          return false;
+        }
+        
         const slotHour = timeSlot.substring(0, 2);
 
-        return eventDate.isValid() && eventDate.isSame(date, 'day') && eventTime === slotHour;
+        return eventDate.isValid() && eventDate.isSame(date, 'day') && eventHour === slotHour;
       } catch (err) {
         console.error("Error filtering event:", event, err);
         return false;
@@ -112,12 +132,12 @@ function CalendarGrid({ events = [], onEventClick, onCreateEvent }) {
           <div key={timeIndex} className="grid grid-cols-8 gap-2 border-b border-slate-700 last:border-b-0">
             {/* Time Column */}
             <div className="bg-slate-800 p-2 text-center text-sm text-slate-400 border-r border-slate-700">
-              {timeSlot}
+              {timeSlot.display}
             </div>
 
             {/* Day Columns */}
             {weekDays.map((date, dayIndex) => {
-              const dayEvents = getEventsForDayAndTime(date, timeSlot);
+              const dayEvents = getEventsForDayAndTime(date, timeSlot.hour24);
               const isToday = date.isSame(today, "day");
 
               return (
@@ -127,17 +147,30 @@ function CalendarGrid({ events = [], onEventClick, onCreateEvent }) {
                     isToday ? 'bg-blue-950' : ''
                   }`}
                 >
-                  {dayEvents.map((event, eventIndex) => (
-                    <div
-                      key={eventIndex}
-                      onClick={() => onEventClick && onEventClick(event)}
-                      className="text-xs p-1 mb-1 rounded truncate cursor-pointer hover:opacity-90"
-                      style={{ backgroundColor: event.color, color: "#fff" }}
-                      title={`${event.title} - ${event.time}`}
-                    >
-                      {event.title}
-                    </div>
-                  ))}
+                  {dayEvents.map((event, eventIndex) => {
+                    const formatEventTime = (time) => {
+                      if (!time) return "";
+                      if (time.includes('T')) {
+                        return convertISOToTime(time);
+                      }
+                      if (time.match(/^\d{2}:\d{2}/)) {
+                        return convertTo12Hour(time);
+                      }
+                      return time;
+                    };
+                    
+                    return (
+                      <div
+                        key={eventIndex}
+                        onClick={() => onEventClick && onEventClick(event)}
+                        className="text-xs p-1 mb-1 rounded truncate cursor-pointer hover:opacity-90"
+                        style={{ backgroundColor: event.color, color: "#fff" }}
+                        title={`${event.title} - ${formatEventTime(event.time)}`}
+                      >
+                        {event.title}
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })}

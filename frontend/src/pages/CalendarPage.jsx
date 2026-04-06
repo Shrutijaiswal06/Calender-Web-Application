@@ -54,7 +54,18 @@ function CalendarPage() {
           const googleData = await googleResponse.json();
           if (Array.isArray(googleData)) {
             console.log("Fetched Google Calendar events:", googleData);
-            allEvents = [...allEvents, ...googleData];
+            
+            // Filter out Google events that are already synced as local events
+            const localGoogleIds = allEvents
+              .filter(event => event.googleCalendarId)
+              .map(event => event.googleCalendarId);
+            
+            const filteredGoogleData = googleData.filter(
+              googleEvent => !localGoogleIds.includes(googleEvent.id)
+            );
+            
+            console.log(`Filtered Google events (removed ${googleData.length - filteredGoogleData.length} duplicates):`, filteredGoogleData);
+            allEvents = [...allEvents, ...filteredGoogleData];
           }
         } else {
           console.log("Google Calendar not connected, status:", googleResponse.status);
@@ -113,13 +124,17 @@ function CalendarPage() {
         return;
       }
 
+      // Get user's timezone
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const eventWithTimezone = { ...event, timezone };
+
       const response = await fetch("http://localhost:5000/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(event),
+        body: JSON.stringify(eventWithTimezone),
       });
 
       if (!response.ok) {

@@ -6,7 +6,10 @@ const eventSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-
+  description: {
+    type: String,
+    default: ''
+  },
   date: {
     type: String,
     required: true
@@ -42,6 +45,16 @@ const eventSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+
+  googleCalendarId: {
+    type: String,
+    default: null
+  },
+
+  googleCalendarSynced: {
+    type: Boolean,
+    default: false
   }
 
 }, {

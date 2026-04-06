@@ -6,6 +6,7 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
     title: "",
     date: "",
     time: "",
+    description: "",
     location: "",
     url: "",
     eventType: "",
@@ -54,6 +55,7 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
       title: "",
       date: "",
       time: "",
+      description: "",
       location: "",
       url: "",
       eventType: "",
@@ -86,6 +88,17 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
             />
           </div>
 
+          <div className="flex items-start gap-2">
+            <span className="text-indigo-400 text-lg mt-3">📋</span>
+            <textarea
+              name="description"
+              placeholder="Event Description (Optional)"
+              value={eventData.description}
+              onChange={handleChange}
+              className="flex-1 p-3 rounded bg-slate-700 text-white resize-none h-24"
+            />
+          </div>
+
           <div className="flex items-center gap-2">
             <span className="text-green-400 text-lg">📅</span>
             <input
@@ -99,13 +112,16 @@ function EventModal({ isOpen, onClose, onSave, eventTypes }) {
 
           <div className="flex items-center gap-2">
             <span className="text-yellow-400 text-lg">⏰</span>
-            <input
-              type="time"
-              name="time"
-              value={eventData.time}
-              onChange={handleChange}
-              className="flex-1 p-3 rounded bg-slate-700 text-white"
-            />
+            <div className="flex-1 flex flex-col">
+              <label className="text-xs text-slate-400 mb-1">Time (24-hour format)</label>
+              <input
+                type="time"
+                name="time"
+                value={eventData.time}
+                onChange={handleChange}
+                className="flex-1 p-3 rounded bg-slate-700 text-white"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

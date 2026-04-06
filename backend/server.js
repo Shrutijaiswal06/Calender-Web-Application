@@ -56,6 +56,194 @@ const oauth2Client = new google.auth.OAuth2(
 
 const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
+/* ---------------- TIMEZONE CONVERSION UTILITIES ---------------- */
+
+// Convert UTC datetime to local datetime (e.g., UTC to IST)
+const convertUTCToLocal = (utcISOString) => {
+  if (!utcISOString) return { date: '', time: '' };
+  
+  try {
+    // Parse UTC datetime
+    const utcDate = new Date(utcISOString);
+    
+    // Get user's timezone offset in milliseconds
+    const offset = new Date().getTimezoneOffset();
+    
+    // Adjust to local timezone
+    const localDateAdjusted = new Date(utcDate.getTime() - offset * 60 * 1000);
+    
+    // Format date as YYYY-MM-DD
+    const year = localDateAdjusted.getUTCFullYear();
+    const month = String(localDateAdjusted.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(localDateAdjusted.getUTCDate()).padStart(2, '0');
+    const date = `${year}-${month}-${day}`;
+    
+    // Format time as HH:MM
+    const hours = String(localDateAdjusted.getUTCHours()).padStart(2, '0');
+    const minutes = String(localDateAdjusted.getUTCMinutes()).padStart(2, '0');
+    const time = `${hours}:${minutes}`;
+    
+    return { date, time, iso: utcISOString };
+  } catch (error) {
+    console.error('Error converting UTC to local:', error);
+    return { date: '', time: '' };
+  }
+};
+
+/* ---------------- SYNC EVENT TO GOOGLE CALENDAR FUNCTION ---------------- */
+
+// const syncEventToGoogleCalendar = async (userId, event) => {
+//   try {
+//     const user = await User.findById(userId);
+
+//     if (!user.googleCalendar || !user.googleCalendar.accessToken) {
+//       console.log('Google Calendar not connected for user:', userId);
+//       return;
+//     }
+
+//     oauth2Client.setCredentials({
+//       access_token: user.googleCalendar.accessToken,
+//       refresh_token: user.googleCalendar.refreshToken,
+//       expiry_date: user.googleCalendar.expiryDate.getTime()
+//     });
+
+//     // Parse date and time properly
+//     const eventDate = new Date(event.date);
+//     const [hours, minutes] = event.time.split(':');
+//     const hour = parseInt(hours);
+//     const minute = parseInt(minutes);
+    
+//     // Set time in local timezone
+//     eventDate.setHours(hour, minute, 0, 0);
+    
+//     // Get timezone from event or use default
+//     const timeZone = event.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+
+//     const googleEvent = {
+//       summary: event.title,
+//       description: event.description || '',
+//       start: {
+//         dateTime: eventDate.toISOString(),
+//         timeZone: timeZone
+//       },
+//       end: {
+//         dateTime: new Date(eventDate.getTime() + 60 * 60 * 1000).toISOString(),
+//         timeZone: timeZone
+//       },
+//       location: event.location || '',
+//       conferenceData: event.url ? {
+//         entryPoints: [
+//           {
+//             entryPointType: 'video',
+//             uri: event.url
+//           }
+//         ]
+//       } : undefined
+//     };
+
+//     const response = await calendar.events.insert({
+//       calendarId: user.googleCalendar.calendarId || 'primary',
+//       resource: googleEvent,
+//       supportsAttachments: true
+//     });
+
+//     console.log('Event synced to Google Calendar:', response.data.id);
+//     return response.data;
+
+//   } catch (error) {
+//     console.error('Error syncing to Google Calendar:', error.message);
+//     throw error;
+//   }
+// };
+
+//     const response = await calendar.events.insert({
+//       calendarId: user.googleCalendar.calendarId || 'primary',
+//       resource: googleEvent,
+//       supportsAttachments: true
+//     });
+
+//     console.log('Event synced to Google Calendar:', response.data.id);
+//     return response.data;
+
+//   } catch (error) {
+//     console.error('Error syncing to Google Calendar:', error.message);
+//     throw error;
+//   }
+// };
+const syncEventToGoogleCalendar = async (userId, event) => {
+  try {
+    const user = await User.findById(userId);
+
+    if (!user.googleCalendar || !user.googleCalendar.accessToken) {
+      console.log('Google Calendar not connected for user:', userId);
+      return;
+    }
+
+    oauth2Client.setCredentials({
+      access_token: user.googleCalendar.accessToken,
+      refresh_token: user.googleCalendar.refreshToken,
+      expiry_date: user.googleCalendar.expiryDate.getTime()
+    });
+
+    // Parse date and time from local input (user enters time in their local timezone)
+    const [year, month, day] = event.date.split('-');
+    const [hours, minutes] = event.time.split(':');
+    
+    // Format the time string for Google Calendar
+    // When using timeZone parameter, Google Calendar expects dateTime WITHOUT Z suffix
+    // The time represents the wall-clock time in the specified timezone
+    const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:00`;
+    
+    // Calculate end time (add 1 hour)
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes), 0);
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+    const endDateTimeString = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}T${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}:00`;
+
+    // Get timezone
+    const timeZone =
+      event.timezone ||
+      Intl.DateTimeFormat().resolvedOptions().timeZone ||
+      'Asia/Kolkata';
+
+    const googleEvent = {
+      summary: event.title,
+      description: event.description || '',
+      start: {
+        dateTime: dateTimeString,
+        timeZone: timeZone
+      },
+      end: {
+        dateTime: endDateTimeString,
+        timeZone: timeZone
+      },
+      location: event.location || '',
+      conferenceData: event.url
+        ? {
+            entryPoints: [
+              {
+                entryPointType: 'video',
+                uri: event.url
+              }
+            ]
+          }
+        : undefined
+    };
+
+    const response = await calendar.events.insert({
+      calendarId: user.googleCalendar.calendarId || 'primary',
+      resource: googleEvent,
+      supportsAttachments: true
+    });
+
+    console.log('Event synced to Google Calendar:', response.data.id);
+
+    return response.data;
+
+  } catch (error) {
+    console.error('Error syncing to Google Calendar:', error.message);
+    throw error;
+  }
+};
 /* ---------------- AUTH ---------------- */
 
 app.post('/api/auth/register', async (req, res) => {
@@ -198,17 +386,37 @@ app.get('/api/google-calendar/events', authenticateToken, async (req, res) => {
       orderBy: 'startTime'
     });
 
-    const events = response.data.items.map(event => ({
-      id: event.id,
-      title: event.summary,
-      date: event.start.dateTime ? event.start.dateTime.split('T')[0] : event.start.date,
-      time: event.start.dateTime ? event.start.dateTime.split('T')[1].substring(0, 5) : '00:00',
-      location: event.location || '',
-      url: event.htmlLink || '',
-      category: 'Google Calendar',
-      color: '#4285f4',
-      isGoogleEvent: true
-    }));
+    const events = response.data.items.map(event => {
+      // Convert UTC datetime to local timezone
+      const startDateTime = event.start.dateTime || event.start.date;
+      
+      let date, time;
+      
+      if (event.start.dateTime) {
+        // Has time component - convert UTC to local
+        const { date: localDate, time: localTime } = convertUTCToLocal(startDateTime);
+        date = localDate;
+        time = localTime;
+      } else {
+        // All-day event
+        date = startDateTime;
+        time = '00:00';
+      }
+      
+      return {
+        id: event.id,
+        googleCalendarId: event.id,  // Track Google Calendar ID
+        title: event.summary,
+        date: date,
+        time: time,
+        description: event.description || '',
+        location: event.location || '',
+        url: event.htmlLink || '',
+        category: 'Google Calendar',
+        color: '#4285f4',
+        isGoogleEvent: true
+      };
+    });
 
     res.json(events);
   } catch (error) {
@@ -226,7 +434,14 @@ app.get('/api/events', authenticateToken, async (req, res) => {
     const events = await Event.find({ user: req.user.userId }).populate('eventType');
     console.log(`Fetched ${events.length} events for user ${req.user.userId}`);
 
-    res.json(events);
+    // Map to include isLocal flag and filter out events that might be duplicated from Google Calendar
+    const mappedEvents = events.map(event => ({
+      ...event.toObject(),
+      isLocal: true,
+      isGoogleEvent: false
+    }));
+
+    res.json(mappedEvents);
 
   } catch (error) {
 
@@ -241,7 +456,7 @@ app.post('/api/events', authenticateToken, async (req, res) => {
 
   try {
 
-    const { title, date, time, location, url, eventType, color } = req.body;
+    const { title, date, time, location, url, eventType, color, description } = req.body;
     
     // Validate required fields
     if (!title || !date || !time || !eventType) {
@@ -258,6 +473,7 @@ app.post('/api/events', authenticateToken, async (req, res) => {
       title,
       date,
       time,
+      description: description || '',
       location: location || '',
       url: url || '',
       eventType,
@@ -269,6 +485,14 @@ app.post('/api/events', authenticateToken, async (req, res) => {
     await newEvent.populate('eventType');
     
     console.log('Event created successfully:', newEvent);
+
+    // Sync to Google Calendar
+    try {
+      await syncEventToGoogleCalendar(req.user.userId, newEvent);
+    } catch (googleError) {
+      console.log('Google Calendar sync warning:', googleError.message);
+      // Don't fail the event creation if Google Calendar sync fails
+    }
 
     res.status(201).json(newEvent);
 
